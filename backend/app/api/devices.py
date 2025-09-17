@@ -48,7 +48,7 @@ async def get_devices(
         )
         
         return DeviceListResponse(
-            devices=[DeviceResponse.from_orm(device) for device in devices],
+            devices=[DeviceResponse.model_validate(device) for device in devices],
             total=total,
             skip=skip,
             limit=limit
@@ -84,7 +84,7 @@ async def get_device(
         
         logger.info("Device retrieved", device_id=device_id, user_id=current_user.id)
         
-        return DeviceResponse.from_orm(device)
+        return DeviceResponse.model_validate(device)
         
     except HTTPException:
         raise
@@ -136,7 +136,7 @@ async def create_device(
             serial_number=device.serial_number
         )
         
-        return DeviceResponse.from_orm(device)
+        return DeviceResponse.model_validate(device)
         
     except HTTPException:
         raise
@@ -180,7 +180,7 @@ async def update_device(
         
         logger.info("Device updated successfully", device_id=device_id, user_id=current_user.id)
         
-        return DeviceResponse.from_orm(device)
+        return DeviceResponse.model_validate(device)
         
     except HTTPException:
         raise

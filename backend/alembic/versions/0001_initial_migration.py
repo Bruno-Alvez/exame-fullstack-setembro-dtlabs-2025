@@ -73,6 +73,7 @@ def upgrade() -> None:
         sa.Column('duration_minutes', sa.Integer(), nullable=False, default=5),
         sa.Column('is_active', sa.Boolean(), nullable=False, default=True),
         sa.Column('last_triggered', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('trigger_count', sa.Integer(), nullable=False, default=0),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.ForeignKeyConstraint(['device_id'], ['devices.id'], ondelete='CASCADE'),

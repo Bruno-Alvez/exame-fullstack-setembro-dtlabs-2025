@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from datetime import datetime
 import structlog
+import uuid
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -41,7 +42,13 @@ async def get_current_user(
         logger.warning("Invalid JWT token")
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        logger.warning("Invalid user ID format", user_id=user_id)
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
         logger.warning("User not found", user_id=user_id)
         raise credentials_exception

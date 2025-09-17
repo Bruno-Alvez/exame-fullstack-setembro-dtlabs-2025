@@ -44,13 +44,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: devicewatch-backend
-    environment:
-      - DATABASE_URL=postgresql://devicewatch:devicewatch123@postgres:5432/devicewatch
-      - REDIS_URL=redis://redis:6379
-      - SECRET_KEY=your-super-secret-key-change-in-production
-      - JWT_ALGORITHM=HS256
-      - JWT_EXPIRE_MINUTES=30
-      - ENVIRONMENT=development
+    env_file:
+      - ./backend/docker.env
     ports:
       - "8000:8000"
     volumes:
@@ -68,24 +63,24 @@ services:
     networks:
       - devicewatch-network
 
-  # React Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: devicewatch-frontend
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000/ws
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - devicewatch-network
+  # React Frontend (commented out until frontend is built)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: devicewatch-frontend
+  #   environment:
+  #     - VITE_API_BASE_URL=http://localhost:8000
+  #     - VITE_WS_URL=ws://localhost:8000/ws
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - devicewatch-network
 
   # Device Simulator
   simulator:
@@ -93,13 +88,8 @@ services:
       context: ./device-simulator
       dockerfile: Dockerfile
     container_name: devicewatch-simulator
-    environment:
-      - API_BASE_URL=http://backend:8000
-      - DEVICE_COUNT=10
-      - FAILURE_RATE=0.05
-      - SCENARIO=mixed
-      - GEOGRAPHIC_SPREAD=true
-      - PROFILES=server:3,iot:4,router:3
+    env_file:
+      - ./device-simulator/simulator.env
     depends_on:
       backend:
         condition: service_healthy

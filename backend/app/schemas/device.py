@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 import re
+import uuid
 
 
 class DeviceBase(BaseModel):
@@ -40,13 +41,19 @@ class DeviceUpdate(BaseModel):
 
 
 class DeviceResponse(DeviceBase):
-    id: str
-    user_id: str
+    id: Union[str, uuid.UUID]
+    user_id: Union[str, uuid.UUID]
     last_seen: Optional[datetime]
     created_at: datetime
     updated_at: datetime
     is_online: bool
     current_health_score: float
+    
+    @validator('id', 'user_id', pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
     status: str
 
     class Config:
@@ -71,5 +78,5 @@ class DeviceHealthSummary(BaseModel):
 
 
 class DeviceBulkAction(BaseModel):
-    action: str = Field(..., regex="^(delete|activate|deactivate)$")
+    action: str = Field(..., pattern="^(delete|activate|deactivate)$")
     device_ids: List[str] = Field(..., min_items=1)
