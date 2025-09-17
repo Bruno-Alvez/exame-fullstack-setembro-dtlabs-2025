@@ -42,3 +42,7 @@ class UserResponse(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str

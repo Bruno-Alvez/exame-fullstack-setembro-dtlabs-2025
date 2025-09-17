@@ -4,8 +4,8 @@ from datetime import datetime
 
 
 class AlertCondition(BaseModel):
-    metric: str = Field(..., regex="^(cpu_usage|ram_usage|temperature|free_disk_space|dns_latency|connectivity|health_score)$")
-    operator: str = Field(..., regex="^(>|>=|<|<=|==|!=)$")
+    metric: str = Field(..., pattern="^(cpu_usage|ram_usage|temperature|free_disk_space|dns_latency|connectivity|health_score)$")
+    operator: str = Field(..., pattern="^(>|>=|<|<=|==|!=)$")
     value: float
 
     @validator('value')

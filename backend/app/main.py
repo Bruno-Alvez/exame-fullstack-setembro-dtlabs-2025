@@ -7,6 +7,8 @@ import time
 
 from app.core.config import settings
 from app.core.database import engine
+from sqlalchemy import text
+# from app.core.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthErrorHandler
 from app.api import auth, devices, heartbeats, alerts
 from app.websockets import connection
 
@@ -53,6 +55,14 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=settings.ALLOWED_HOSTS
 )
+
+# app.add_middleware(
+#     RateLimitMiddleware,
+#     calls=settings.RATE_LIMIT_REQUESTS,
+#     period=settings.RATE_LIMIT_WINDOW
+# )
+
+# app.add_middleware(SecurityHeadersMiddleware)
 
 # Request logging middleware
 @app.middleware("http")
@@ -102,7 +112,7 @@ async def health_check():
     try:
         # Check database connection
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         
         return {
             "status": "healthy",
