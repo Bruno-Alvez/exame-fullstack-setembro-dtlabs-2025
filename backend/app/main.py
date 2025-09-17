@@ -8,6 +8,7 @@ import time
 from app.core.config import settings
 from app.core.database import engine
 from app.api import auth, devices, heartbeats, alerts
+from app.websockets import connection
 
 # Configure structured logging
 structlog.configure(
@@ -85,6 +86,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(devices.router, prefix="/api/v1/devices", tags=["Devices"])
 app.include_router(heartbeats.router, prefix="/api/v1/heartbeats", tags=["Heartbeats"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
+app.include_router(connection.router, tags=["WebSocket"])
 
 @app.get("/")
 async def root():
