@@ -10,6 +10,7 @@ from app.models.device import Device
 from app.schemas.heartbeat import HeartbeatCreate, HeartbeatResponse, HeartbeatListResponse
 from app.services.health_scoring import calculate_health_score
 from app.services.websocket_manager import websocket_manager
+from app.services.alert_service import AlertService
 
 logger = structlog.get_logger()
 
@@ -51,7 +52,7 @@ async def create_heartbeat(
             free_disk_space=heartbeat_data.free_disk_space,
             dns_latency=heartbeat_data.dns_latency,
             connectivity=heartbeat_data.connectivity,
-            boot_timestamp=heartbeat_data.boot_timestamp,
+            boot_timestamp=heartbeat_data.boot_timestamp or datetime.utcnow(),
             health_score=health_score
         )
         
@@ -92,10 +93,25 @@ async def create_heartbeat(
             heartbeat_data=heartbeat_response.model_dump()
         )
         
+        # Evaluate alerts for this device
+        alert_service = AlertService(db)
+        heartbeat_data_for_alerts = {
+            "cpu_usage": heartbeat_data.cpu_usage,
+            "ram_usage": heartbeat_data.ram_usage,
+            "temperature": heartbeat_data.temperature,
+            "free_disk_space": heartbeat_data.free_disk_space,
+            "dns_latency": heartbeat_data.dns_latency,
+            "connectivity": heartbeat_data.connectivity,
+            "health_score": health_score
+        }
+        
+        triggered_alerts = await alert_service.evaluate_device_alerts(device_id, heartbeat_data_for_alerts)
+        
         logger.info(
             "Heartbeat created successfully",
             device_id=device_id,
-            health_score=health_score
+            health_score=health_score,
+            triggered_alerts=len(triggered_alerts)
         )
         
         return heartbeat_response
