@@ -40,8 +40,17 @@ class Alert(Base):
         if not self.last_triggered:
             return False
         
-        from datetime import datetime, timedelta
-        return self.last_triggered > datetime.utcnow() - timedelta(minutes=self.duration_minutes)
+        from datetime import datetime, timedelta, timezone
+        
+        # Ensure both datetimes are timezone-aware
+        now = datetime.now(timezone.utc)
+        if self.last_triggered.tzinfo is None:
+            # If last_triggered is naive, assume it's UTC
+            last_triggered = self.last_triggered.replace(tzinfo=timezone.utc)
+        else:
+            last_triggered = self.last_triggered
+            
+        return last_triggered > now - timedelta(minutes=self.duration_minutes)
 
     @property
     def conditions_summary(self) -> str:
@@ -51,9 +60,15 @@ class Alert(Base):
         
         conditions = []
         for condition in self.conditions:
-            metric = condition.get('metric', 'unknown')
-            operator = condition.get('operator', 'unknown')
-            value = condition.get('value', 'unknown')
+            # Handle both dict and AlertCondition object
+            if hasattr(condition, 'metric'):
+                metric = condition.metric
+                operator = condition.operator
+                value = condition.value
+            else:
+                metric = condition.get('metric', 'unknown')
+                operator = condition.get('operator', 'unknown')
+                value = condition.get('value', 'unknown')
             conditions.append(f"{metric} {operator} {value}")
         
         return " AND ".join(conditions)
@@ -64,9 +79,15 @@ class Alert(Base):
             return False
         
         for condition in self.conditions:
-            metric = condition.get('metric')
-            operator = condition.get('operator')
-            value = condition.get('value')
+            # Handle both dict and AlertCondition object
+            if hasattr(condition, 'metric'):
+                metric = condition.metric
+                operator = condition.operator
+                value = condition.value
+            else:
+                metric = condition.get('metric')
+                operator = condition.get('operator')
+                value = condition.get('value')
             
             if metric not in heartbeat_data:
                 continue
@@ -96,8 +117,8 @@ class Alert(Base):
 
     def trigger(self):
         """Mark alert as triggered"""
-        from datetime import datetime
-        self.last_triggered = datetime.utcnow()
+        from datetime import datetime, timezone
+        self.last_triggered = datetime.now(timezone.utc)
         self.trigger_count += 1
 
     def reset(self):

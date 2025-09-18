@@ -117,13 +117,57 @@ async def device_websocket_endpoint(
 @router.websocket("/ws/user")
 async def user_websocket_endpoint(
     websocket: WebSocket,
-    current_user: User = Depends(get_current_user)
+    token: Optional[str] = Query(None)
 ):
     """
     WebSocket endpoint for user-specific real-time updates
-    Requires authentication
+    Requires authentication via query parameter
     """
-    await websocket_manager.connect(websocket, user_id=str(current_user.id))
+    # Authenticate user from token
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+    
+    try:
+        from app.core.security import verify_token
+        from app.models.user import User
+        from app.core.database import SessionLocal
+        
+        logger.info("WebSocket authentication attempt", token_length=len(token) if token else 0)
+        
+        # Verify token and get user
+        payload = verify_token(token)
+        if not payload:
+            logger.warning("WebSocket authentication failed: Invalid token")
+            await websocket.close(code=1008, reason="Invalid token")
+            return
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            logger.warning("WebSocket authentication failed: No user ID in token")
+            await websocket.close(code=1008, reason="Invalid token payload")
+            return
+        
+        logger.info("WebSocket token verified", user_id=user_id)
+        
+        # Get user from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.is_active:
+                logger.warning("WebSocket authentication failed: User not found or inactive", user_id=user_id)
+                await websocket.close(code=1008, reason="User not found or inactive")
+                return
+        finally:
+            db.close()
+        
+        logger.info("WebSocket authentication successful", user_id=user_id)
+        await websocket_manager.connect(websocket, user_id=str(user.id))
+        
+    except Exception as e:
+        logger.error("WebSocket authentication error", error=str(e))
+        await websocket.close(code=1011, reason="Authentication failed")
+        return
     
     try:
         while True:
@@ -138,23 +182,23 @@ async def user_websocket_endpoint(
                     await websocket_manager.send_personal_message(
                         json.dumps({
                             "type": "pong",
-                            "user_id": str(current_user.id),
+                            "user_id": str(user.id),
                             "timestamp": message.get("timestamp")
                         }),
                         websocket
                     )
                     
             except json.JSONDecodeError:
-                logger.warning("Invalid JSON received via user WebSocket", user_id=current_user.id)
+                logger.warning("Invalid JSON received via user WebSocket", user_id=user.id)
             except Exception as e:
-                logger.error("Error processing user WebSocket message", user_id=current_user.id, error=str(e))
+                logger.error("Error processing user WebSocket message", user_id=user.id, error=str(e))
                 
     except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket, user_id=str(current_user.id))
-        logger.info("User WebSocket disconnected", user_id=current_user.id)
+        websocket_manager.disconnect(websocket, user_id=str(user.id))
+        logger.info("User WebSocket disconnected", user_id=user.id)
     except Exception as e:
-        logger.error("User WebSocket connection error", user_id=current_user.id, error=str(e))
-        websocket_manager.disconnect(websocket, user_id=str(current_user.id))
+        logger.error("User WebSocket connection error", user_id=user.id, error=str(e))
+        websocket_manager.disconnect(websocket, user_id=str(user.id))
 
 
 @router.get("/ws/stats")

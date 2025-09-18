@@ -6,9 +6,10 @@ import structlog
 from app.core.database import get_db
 from app.models.alert import Alert
 from app.models.device import Device
-from app.schemas.alert import AlertCreate, AlertUpdate, AlertResponse, AlertListResponse
+from app.schemas.alert import AlertCreate, AlertUpdate, AlertResponse, AlertListResponse, AlertStats
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.services.alert_service import AlertService
 
 logger = structlog.get_logger()
 
@@ -67,8 +68,26 @@ async def get_alerts(
             total=total
         )
         
+        alert_responses = []
+        for alert in alerts:
+            alert_responses.append(AlertResponse(
+                id=str(alert.id),
+                name=alert.name,
+                description=alert.description,
+                device_id=str(alert.device_id),
+                conditions=alert.conditions,
+                duration_minutes=alert.duration_minutes,
+                is_active=alert.is_active,
+                last_triggered=alert.last_triggered,
+                trigger_count=alert.trigger_count,
+                created_at=alert.created_at,
+                updated_at=alert.updated_at,
+                is_triggered=alert.is_triggered,
+                conditions_summary=alert.conditions_summary
+            ))
+        
         return AlertListResponse(
-            alerts=[AlertResponse.from_orm(alert) for alert in alerts],
+            alerts=alert_responses,
             total=total,
             skip=skip,
             limit=limit
@@ -110,7 +129,21 @@ async def get_alert(
         
         logger.info("Alert retrieved", alert_id=alert_id, user_id=current_user.id)
         
-        return AlertResponse.from_orm(alert)
+        return AlertResponse(
+            id=str(alert.id),
+            name=alert.name,
+            description=alert.description,
+            device_id=str(alert.device_id),
+            conditions=alert.conditions,
+            duration_minutes=alert.duration_minutes,
+            is_active=alert.is_active,
+            last_triggered=alert.last_triggered,
+            trigger_count=alert.trigger_count,
+            created_at=alert.created_at,
+            updated_at=alert.updated_at,
+            is_triggered=alert.is_triggered,
+            conditions_summary=alert.conditions_summary
+        )
         
     except HTTPException:
         raise
@@ -143,12 +176,15 @@ async def create_alert(
                 detail="Device not found"
             )
         
+        # Convert conditions to dict for JSON storage
+        conditions_dict = [condition.dict() for condition in alert_data.conditions]
+        
         # Create new alert
         alert = Alert(
             name=alert_data.name,
             description=alert_data.description,
             device_id=alert_data.device_id,
-            conditions=alert_data.conditions,
+            conditions=conditions_dict,
             duration_minutes=alert_data.duration_minutes,
             is_active=alert_data.is_active
         )
@@ -164,7 +200,21 @@ async def create_alert(
             device_id=alert_data.device_id
         )
         
-        return AlertResponse.from_orm(alert)
+        return AlertResponse(
+            id=str(alert.id),
+            name=alert.name,
+            description=alert.description,
+            device_id=str(alert.device_id),
+            conditions=alert.conditions,
+            duration_minutes=alert.duration_minutes,
+            is_active=alert.is_active,
+            last_triggered=alert.last_triggered,
+            trigger_count=alert.trigger_count,
+            created_at=alert.created_at,
+            updated_at=alert.updated_at,
+            is_triggered=alert.is_triggered,
+            conditions_summary=alert.conditions_summary
+        )
         
     except HTTPException:
         raise
@@ -203,7 +253,7 @@ async def update_alert(
             )
         
         # Update alert fields
-        update_data = alert_data.dict(exclude_unset=True)
+        update_data = alert_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(alert, field, value)
         
@@ -212,7 +262,21 @@ async def update_alert(
         
         logger.info("Alert updated successfully", alert_id=alert_id, user_id=current_user.id)
         
-        return AlertResponse.from_orm(alert)
+        return AlertResponse(
+            id=str(alert.id),
+            name=alert.name,
+            description=alert.description,
+            device_id=str(alert.device_id),
+            conditions=alert.conditions,
+            duration_minutes=alert.duration_minutes,
+            is_active=alert.is_active,
+            last_triggered=alert.last_triggered,
+            trigger_count=alert.trigger_count,
+            created_at=alert.created_at,
+            updated_at=alert.updated_at,
+            is_triggered=alert.is_triggered,
+            conditions_summary=alert.conditions_summary
+        )
         
     except HTTPException:
         raise
@@ -301,7 +365,21 @@ async def toggle_alert(
             is_active=alert.is_active
         )
         
-        return AlertResponse.from_orm(alert)
+        return AlertResponse(
+            id=str(alert.id),
+            name=alert.name,
+            description=alert.description,
+            device_id=str(alert.device_id),
+            conditions=alert.conditions,
+            duration_minutes=alert.duration_minutes,
+            is_active=alert.is_active,
+            last_triggered=alert.last_triggered,
+            trigger_count=alert.trigger_count,
+            created_at=alert.created_at,
+            updated_at=alert.updated_at,
+            is_triggered=alert.is_triggered,
+            conditions_summary=alert.conditions_summary
+        )
         
     except HTTPException:
         raise
@@ -311,5 +389,88 @@ async def toggle_alert(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to toggle alert"
+        )
+
+@router.get("/stats/summary", response_model=AlertStats)
+async def get_alert_statistics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get comprehensive alert statistics for current user
+    """
+    try:
+        alert_service = AlertService(db)
+        stats = alert_service.get_alert_statistics(str(current_user.id))
+        
+        return AlertStats(**stats)
+        
+    except Exception as e:
+        logger.error("Failed to get alert statistics", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get alert statistics"
+        )
+
+@router.get("/device/{device_id}/summary")
+async def get_device_alerts_summary(
+    device_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get alert summary for a specific device
+    """
+    try:
+        alert_service = AlertService(db)
+        summary = alert_service.get_device_alerts_summary(device_id, str(current_user.id))
+        
+        if not summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Device not found or access denied"
+            )
+        
+        return summary
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get device alerts summary", device_id=device_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get device alerts summary"
+        )
+
+@router.post("/{alert_id}/reset")
+async def reset_alert_triggers(
+    alert_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset alert trigger state
+    """
+    try:
+        alert_service = AlertService(db)
+        success = alert_service.reset_alert_triggers(alert_id, str(current_user.id))
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Alert not found or access denied"
+            )
+        
+        logger.info("Alert triggers reset", alert_id=alert_id, user_id=current_user.id)
+        
+        return {"message": "Alert triggers reset successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to reset alert triggers", alert_id=alert_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset alert triggers"
         )
 

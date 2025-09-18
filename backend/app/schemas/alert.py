@@ -21,6 +21,11 @@ class AlertCondition(BaseModel):
             raise ValueError('Health score must be between 0 and 100')
         return v
 
+    class Config:
+        json_encoders = {
+            float: lambda v: v
+        }
+
 
 class AlertBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
