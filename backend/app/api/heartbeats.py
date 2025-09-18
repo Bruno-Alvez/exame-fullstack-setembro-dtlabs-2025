@@ -63,10 +63,33 @@ async def create_heartbeat(
         device.last_seen = datetime.utcnow()
         db.commit()
         
+        # Create response data
+        heartbeat_response = HeartbeatResponse(
+            id=str(heartbeat.id),
+            device_id=str(heartbeat.device_id),
+            cpu_usage=heartbeat.cpu_usage,
+            ram_usage=heartbeat.ram_usage,
+            temperature=heartbeat.temperature,
+            free_disk_space=heartbeat.free_disk_space,
+            dns_latency=heartbeat.dns_latency,
+            connectivity=heartbeat.connectivity,
+            boot_timestamp=heartbeat.boot_timestamp,
+            health_score=heartbeat.health_score,
+            timestamp=heartbeat.timestamp,
+            is_healthy=health_score >= 80,
+            is_critical=health_score < 60,
+            metrics_summary={
+                "cpu_status": "high" if heartbeat.cpu_usage > 80 else "normal",
+                "ram_status": "high" if heartbeat.ram_usage > 80 else "normal",
+                "temp_status": "high" if heartbeat.temperature > 60 else "normal",
+                "disk_status": "low" if heartbeat.free_disk_space < 20 else "normal"
+            }
+        )
+        
         # Send real-time update via WebSocket
         await websocket_manager.broadcast_device_update(
             device_id=device_id,
-            heartbeat_data=HeartbeatResponse.from_orm(heartbeat)
+            heartbeat_data=heartbeat_response.model_dump()
         )
         
         logger.info(
@@ -75,7 +98,7 @@ async def create_heartbeat(
             health_score=health_score
         )
         
-        return HeartbeatResponse.from_orm(heartbeat)
+        return heartbeat_response
         
     except HTTPException:
         raise
@@ -124,8 +147,32 @@ async def get_device_heartbeats(
             hours=hours
         )
         
+        heartbeat_responses = []
+        for hb in heartbeats:
+            heartbeat_responses.append(HeartbeatResponse(
+                id=str(hb.id),
+                device_id=str(hb.device_id),
+                cpu_usage=hb.cpu_usage,
+                ram_usage=hb.ram_usage,
+                temperature=hb.temperature,
+                free_disk_space=hb.free_disk_space,
+                dns_latency=hb.dns_latency,
+                connectivity=hb.connectivity,
+                boot_timestamp=hb.boot_timestamp,
+                health_score=hb.health_score,
+                timestamp=hb.timestamp,
+                is_healthy=hb.health_score >= 80,
+                is_critical=hb.health_score < 60,
+                metrics_summary={
+                    "cpu_status": "high" if hb.cpu_usage > 80 else "normal",
+                    "ram_status": "high" if hb.ram_usage > 80 else "normal",
+                    "temp_status": "high" if hb.temperature > 60 else "normal",
+                    "disk_status": "low" if hb.free_disk_space < 20 else "normal"
+                }
+            ))
+        
         return HeartbeatListResponse(
-            heartbeats=[HeartbeatResponse.from_orm(hb) for hb in heartbeats],
+            heartbeats=heartbeat_responses,
             device_id=device_id,
             total=len(heartbeats),
             hours=hours
@@ -170,7 +217,27 @@ async def get_latest_heartbeat(
         
         logger.info("Latest heartbeat retrieved", device_id=device_id)
         
-        return HeartbeatResponse.from_orm(heartbeat)
+        return HeartbeatResponse(
+            id=str(heartbeat.id),
+            device_id=str(heartbeat.device_id),
+            cpu_usage=heartbeat.cpu_usage,
+            ram_usage=heartbeat.ram_usage,
+            temperature=heartbeat.temperature,
+            free_disk_space=heartbeat.free_disk_space,
+            dns_latency=heartbeat.dns_latency,
+            connectivity=heartbeat.connectivity,
+            boot_timestamp=heartbeat.boot_timestamp,
+            health_score=heartbeat.health_score,
+            timestamp=heartbeat.timestamp,
+            is_healthy=heartbeat.health_score >= 80,
+            is_critical=heartbeat.health_score < 60,
+            metrics_summary={
+                "cpu_status": "high" if heartbeat.cpu_usage > 80 else "normal",
+                "ram_status": "high" if heartbeat.ram_usage > 80 else "normal",
+                "temp_status": "high" if heartbeat.temperature > 60 else "normal",
+                "disk_status": "low" if heartbeat.free_disk_space < 20 else "normal"
+            }
+        )
         
     except HTTPException:
         raise
