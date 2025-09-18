@@ -141,6 +141,18 @@ class ConnectionManager:
             "timestamp": datetime.utcnow().isoformat()
         }
 
+    async def broadcast_device_update(self, device_id: str, heartbeat_data: dict):
+        """Broadcast device heartbeat update to all connected clients"""
+        message = {
+            "type": "device_update",
+            "device_id": device_id,
+            "data": heartbeat_data,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        await self.broadcast_to_device(device_id, message)
+        logger.info("Device update broadcasted", device_id=device_id)
+
 
 # Global WebSocket manager instance
 websocket_manager = ConnectionManager()
