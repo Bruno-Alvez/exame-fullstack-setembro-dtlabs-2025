@@ -25,12 +25,12 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy project
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.sh
-
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser \
     && chown -R appuser:appuser /app
+
+# Make start script executable
+RUN chmod +x start.sh
 USER appuser
 
 # Expose port
@@ -41,5 +41,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["./start.sh"]
+CMD ["bash", "-c", "while ! pg_isready -h postgres -p 5432 -U devicewatch; do echo 'Database is unavailable - sleeping'; sleep 2; done; echo 'Database is ready!'; alembic upgrade head; exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
 

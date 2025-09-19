@@ -63,24 +63,22 @@ services:
     networks:
       - devicewatch-network
 
-  # React Frontend (commented out until frontend is built)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: devicewatch-frontend
-  #   environment:
-  #     - VITE_API_BASE_URL=http://localhost:8000
-  #     - VITE_WS_URL=ws://localhost:8000/ws
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - devicewatch-network
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: devicewatch-frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000/ws
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - devicewatch-network
 
   # Device Simulator
   simulator:
